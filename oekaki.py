@@ -66,7 +66,6 @@ class App(tk.Tk):
         #   この処理をコメントアウトすると配置がずれる
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
-
         # フルスクリーン表示
         self.attributes("-fullscreen", True)
         fW = self.winfo_screenwidth()
@@ -82,7 +81,7 @@ class App(tk.Tk):
         hH = fH / 2
         """
 
-        # title
+# title --------------------------------------------------------------------------------------------------------------------------------
         # フレームの設定
         self.titleFrame = tk.Frame(bg="white")
         self.titleFrame.grid(row=0, column=0, sticky="nsew")
@@ -103,7 +102,7 @@ class App(tk.Tk):
         self.exitBtn.pack(anchor=tk.E, padx=10, pady=10)
         """
 
-        # tutorial
+# tutorial --------------------------------------------------------------------------------------------------------------------------------
         # 遷移用関数の設定
         def toThemeProc():
             self.changePage(self.themeFrame)
@@ -126,7 +125,7 @@ class App(tk.Tk):
         self.toThemeBtn = tk.Button(self.tutorialFrame, text="練習を終わる", command=toThemeProc)
         self.toThemeBtn.pack(side=tk.BOTTOM, ipadx=300, ipady=40)
 
-        # theme
+# theme --------------------------------------------------------------------------------------------------------------------------------
         # 表示用関数の設定
         def announceTheme():
             self.themeCanvas.create_image(iThemeW/2, iThemeH/2, image=self.themeImage)
@@ -148,8 +147,7 @@ class App(tk.Tk):
         self.themeSubFrame.pack(anchor=tk.CENTER, pady=200)
         # 画像の読み込み
         self.themeImage = ImageTk.PhotoImage(file="./theme/neko.png")
-        iThemeW = self.themeImage.width()
-        iThemeH = self.themeImage.height()
+        iThemeW, iThemeH = self.themeImage.width(), self.themeImage.height()
         # ラベルの設定
         self.themeOdaihaLabel = tk.Label(self.themeSubFrame, text="お題は", font=("Helvetica", "48"), relief="ridge", borderwidth=0, bg="white")
         self.themeOdaihaLabel.grid(row=0, column=0, pady=20, sticky=tk.W+tk.E)
@@ -157,26 +155,32 @@ class App(tk.Tk):
         self.themeTitleLabel.grid(row=1, column=1, padx=100, sticky=tk.N+tk.S)
         self.themeCountdownLabel = tk.Label(self.themeSubFrame, width=10, font=("Helvetica", "48"), relief="ridge", borderwidth=0, fg="gray", bg="white")
         self.themeCountdownLabel.grid(row=0, column=1, sticky=tk.W+tk.E)
-        self.toDrawingBtn = tk.Button(self.themeSubFrame, text="next", command=lambda: self.changePage(self.drawingFrame))
         # キャンバスの設定
         self.themeCanvas = tk.Canvas(self.themeSubFrame, bg="light gray", width=iThemeW, height=iThemeH)
         self.themeCanvas.grid(row=1, column=0)
         """
         # 使わなかったボタン
+        self.toDrawingBtn = tk.Button(self.themeSubFrame, text="next", command=lambda: self.changePage(self.drawingFrame))
         self.toDrawingBtn.pack()
         """
 
-        # drawing
+# drawing --------------------------------------------------------------------------------------------------------------------------------
         # 表示用関数の設定
         def drawingTimer(time):
             if (time < 1):
                 # 終了～！みたいな演出
                 drawingPaintMng.setPaintEnable(False)
                 self.drawingTimerLabel.config(text="終了！")
-                # 描いた絵をキャプチャ
-                self.drawingCapture = self.canvasCapture(self.drawingCanvas)
+                # 描いた絵をキャプチャして貼り付け
+                self.drawingCapture = ImageTk.PhotoImage(self.canvasCapture(self.drawingCanvas).resize((945, 528)))
+                self.answerCanvas.create_image(991, 329, image=self.drawingCapture)
+                # 選択肢を設定
+                for im, pos, name in self.answerChoices:
+                    self.answerCanvas.create_image(pos[0], pos[1], image=im)
+                    self.answerCanvas.create_text(pos[0], 1000, text=name, font=("helvetica", "36"))
                 # 3 秒後にページ遷移
-                self.after(3000, self.changePage, self.answerFrame)
+                #self.after(3000, self.changePage, self.answerFrame)
+                self.after(10, self.changePage, self.answerFrame)  # デバッグ用
             else:
                 self.drawingTimerLabel.config(text="残り{}秒".format(time))
                 self.after(1000, drawingTimer, time-1)
@@ -188,11 +192,10 @@ class App(tk.Tk):
         self.drawingTimerLabel.pack(side=tk.BOTTOM, fill=tk.X, ipady=10)
         # キャンバスの設定
         self.drawingCanvas = tk.Canvas(self.drawingFrame, width=fW, height=fH-120, bg="white")
-        iDrawingW = self.drawingCanvas.winfo_width()
-        iDrawingH = self.drawingCanvas.winfo_height()
+        iDrawingW, iDrawingH = self.drawingCanvas.winfo_width(), self.drawingCanvas.winfo_height()
         self.drawingCanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         # キャプチャ画像を格納するオブジェクトを生成しておく
-        self.drawingCapture = Image.new("RGB", (iDrawingW, iDrawingH), "white")
+        self.drawingCapture = ImageTk.PhotoImage(Image.new("RGB", (iDrawingW, iDrawingH), "white"))
         # お絵描きキャンバスとして管理
         drawingPaintMng = PaintMng(master=self, canv=self.drawingCanvas)
         """
@@ -201,38 +204,51 @@ class App(tk.Tk):
         self.toAnswerBtn.pack()
         """
 
-        # answer
+# answer　--------------------------------------------------------------------------------------------------------------------------------
         # 表示用関数
         # フレームの設定
         self.answerFrame = tk.Frame(bg="white")
         self.answerFrame.grid(row=0, column=0, sticky="nsew")
         # 画像の読み込み
         self.answerBackImage = ImageTk.PhotoImage(file="./img/answer.png")
-        self.answerImage1 = ImageTk.PhotoImage(file="./theme/neko.png")
-        self.answerImage2 = ImageTk.PhotoImage(file="./theme/neko.png")
-        self.answerImage3 = ImageTk.PhotoImage(file="./theme/neko.png")
+        ansResize = (390, 390)
+        self.answerChoices = [  # とりあえず全部ネコ
+            [ImageTk.PhotoImage(Image.open("./theme/neko.png").resize(ansResize)), (457, 858), "ネコ"],
+            [ImageTk.PhotoImage(Image.open("./theme/neko.png").resize(ansResize)), (990, 858), "ネコ"],
+            [ImageTk.PhotoImage(Image.open("./theme/neko.png").resize(ansResize)), (1500, 858), "ネコ"]
+        ]
         # キャンバスの設定
         self.answerCanvas = tk.Canvas(self.answerFrame, bg="white", width=iDrawingW, height=iDrawingH)
         self.answerCanvas.create_image(hW, hH, image=self.answerBackImage)
-        self.answerCanvas.create_text(hW, 80, text="回答選択", font=("helvetica", "48"))
+        #self.answerCanvas.create_text(hW, 80, text="回答選択", font=("helvetica", "48"))
         self.answerCanvas.place(x=0, y=0, width=fW, height=fH)
-        # ボタンの設定
-        self.toCheckBtn = tk.Button(self.answerFrame, text="正解へ", command=lambda: self.changePage(self.checkFrame))
+        """
+        # 使わなかったボタン
+        self.toCheckBtn = tk.Button(self.answerFrame, text="正解へ", command=lambda: self.changePage(self.correctFrame))
         self.toCheckBtn.place(x=fW-200, y=fH-100, width=100, height=50)
         #self.toCheckBtn.pack(side=tk.BOTTOM, anchor=tk.E, ipadx=100, ipady=30, padx=20, pady=20)
+        """
 
-        # check
-        self.checkFrame = tk.Frame()
-        self.checkFrame.grid(row=0, column=0, sticky="nsew")
-        self.checkLabel = tk.Label(self.checkFrame, text="正解は〇〇！", font=("Helvetica", "35"))
-        self.checkLabel.pack(anchor='center', expand=True)
-        self.toTitleCBtn = tk.Button(self.checkFrame, text="next", command=lambda: self.changePage(self.titleFrame))
+# correct --------------------------------------------------------------------------------------------------------------------------------
+        self.correctFrame = tk.Frame()
+        self.correctFrame.grid(row=0, column=0, sticky="nsew")
+        self.correctLabel = tk.Label(self.correctFrame, text="正解は〇〇！", font=("Helvetica", "35"))
+        self.correctLabel.pack(anchor='center', expand=True)
+        self.toTitleCBtn = tk.Button(self.correctFrame, text="next", command=lambda: self.changePage(self.titleFrame))
         self.toTitleCBtn.pack()
+
+# incorrect --------------------------------------------------------------------------------------------------------------------------------
+        self.incorrectFrame = tk.Frame()
+        self.incorrectFrame.grid(row=0, column=0, sticky="nsew")
+        self.incorrectLabel = tk.Label(self.incorrectFrame, text="正解は〇〇！", font=("Helvetica", "35"))
+        self.incorrectLabel.pack(anchor='center', expand=True)
+        self.toTitleIBtn = tk.Button(self.incorrectFrame, text="next", command=lambda: self.changePage(self.titleFrame))
+        self.toTitleIBtn.pack()
 
         # タイトル画面を最前面にする
         self.drawingFrame.tkraise()
         
-        drawingTimer(0)  # デバッグ用
+        drawingTimer(1)  # デバッグ用
 
     # 画面遷移する関数
     # page: 遷移先のフレーム
@@ -241,12 +257,19 @@ class App(tk.Tk):
 
     # キャンバス内をキャプチャする関数
     def canvasCapture(self, c):
+        """
         wx, wy = c.winfo_rootx(), c.winfo_rooty()
         inner_w, inner_h = int(c.cget("width")), int(c.cget("height"))
         outer_w, outer_h = c.winfo_width(), c.winfo_height()
         ox, oy = (outer_w-inner_w)//2, (outer_h-inner_h)//2
         x0, x1, y0, y1 = 0, inner_w, 0, inner_h
         return ImageGrab.grab((wx+x0+ox, wy+y0+oy, wx+x1+ox, wy+y1+oy))
+        """
+        x= c.winfo_rootx() + c.winfo_x()
+        y= c.winfo_rooty() + c.winfo_y()
+        x1= x + c.winfo_width()
+        y1= y + c.winfo_height()
+        return ImageGrab.grab().crop((x, y, x1, y1))
 
     # 終了時に呼び出される関数
     def exitProc(self):
