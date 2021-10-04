@@ -7,8 +7,7 @@ from PIL import Image, ImageGrab, ImageDraw, ImageTk
 # お絵描きエリアの管理用クラス
 #   tk.Canvas を継承しているわけではなく，単に外から操作するだけ
 class PaintMng():
-    def __init__(self, master, canv):
-        self.master = master
+    def __init__(self, canv):
         self.canv = canv
         self.sx, self.sy = canv.winfo_width(), canv.winfo_height()
         self.clickToggle = False
@@ -20,9 +19,8 @@ class PaintMng():
         self.draw = ImageDraw.Draw(self.im)
 
         # 指定したキャンバス，ウィンドウに対するキーチェック
-        canv.bind("<1>", self.clickSwitch)                  # 左クリックされた時
-        canv.bind("<Motion>", self.mouseMove)               # マウスが移動した時
-        master.bind("<KeyPress-space>", self.clearCanvas)   # スペースキーが押された時
+        canv.bind("<1>", self.clickSwitch)      # 左クリックされた時
+        canv.bind("<Motion>", self.mouseMove)   # マウスが移動した時
     
     # 線を描くか描かないかを切り換える関数
     def clickSwitch(self, event):
@@ -42,7 +40,7 @@ class PaintMng():
                 self.oldX, self.oldY = None, None
     
     # キャンバス内の線を消去する関数
-    def clearCanvas(self, event):
+    def clearCanvas(self):
         if (self.paintEnable):
             # 消した直後から線が描かれないよう，強制的に描かない設定にする
             self.clickToggle = False
@@ -80,6 +78,12 @@ class App(tk.Tk):
         fH = 1080
         hH = fH / 2
         """
+        # スペースキーでキャンバスを消去
+        def clearAll(x):
+            print("clear")
+            tutorialPaintMng.clearCanvas()
+            drawingPaintMng.clearCanvas()
+        self.bind("<KeyPress-space>", clearAll)
 
 # title --------------------------------------------------------------------------------------------------------------------------------
         # フレームの設定
@@ -104,8 +108,10 @@ class App(tk.Tk):
 
 # tutorial --------------------------------------------------------------------------------------------------------------------------------
         # 遷移用関数の設定
+        self.answerChoices = list()
         def toThemeProc():
             self.changePage(self.themeFrame)
+            # お題と選択肢を設定
             self.after(1500, announceTheme)
             #self.after(10, announceTheme)  # デバッグ用
         # フレームの設定
@@ -118,8 +124,7 @@ class App(tk.Tk):
         self.tutorialCanvas.create_text(hW, 150, text="スペースキーで全消し", font=("helvetica", "30"), fill="gray")
         self.tutorialCanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         # お絵描きキャンバスとして管理
-        tutorialPaintMng = PaintMng(master=self, canv=self.tutorialCanvas)
-        tutorialPaintMng.setPaintEnable(True)
+        tutorialPaintMng = PaintMng(canv=self.tutorialCanvas)
         # ボタンの設定
         #self.toThemeBtn = tk.Button(self.tutorialFrame, text="練習を終わる", command=lambda: self.changePage(self.themeFrame))
         self.toThemeBtn = tk.Button(self.tutorialFrame, text="練習を終わる", command=toThemeProc)
@@ -174,10 +179,6 @@ class App(tk.Tk):
                 # 描いた絵をキャプチャして貼り付け
                 self.drawingCapture = ImageTk.PhotoImage(self.canvasCapture(self.drawingCanvas).resize((945, 528)))
                 self.answerCanvas.create_image(991, 329, image=self.drawingCapture)
-                # 選択肢を設定
-                for im, pos, name in self.answerChoices:
-                    self.answerCanvas.create_image(pos[0], pos[1], image=im)
-                    self.answerCanvas.create_text(pos[0], 1000, text=name, font=("helvetica", "36"))
                 # 3 秒後にページ遷移
                 #self.after(3000, self.changePage, self.answerFrame)
                 self.after(10, self.changePage, self.answerFrame)  # デバッグ用
@@ -197,7 +198,7 @@ class App(tk.Tk):
         # キャプチャ画像を格納するオブジェクトを生成しておく
         self.drawingCapture = ImageTk.PhotoImage(Image.new("RGB", (iDrawingW, iDrawingH), "white"))
         # お絵描きキャンバスとして管理
-        drawingPaintMng = PaintMng(master=self, canv=self.drawingCanvas)
+        drawingPaintMng = PaintMng(canv=self.drawingCanvas)
         """
         # 使わなかったボタン
         self.toAnswerBtn = tk.Button(self.drawingFrame, text="next", command=lambda: self.changePage(self.answerFrame))
@@ -205,23 +206,42 @@ class App(tk.Tk):
         """
 
 # answer　--------------------------------------------------------------------------------------------------------------------------------
-        # 表示用関数
         # フレームの設定
         self.answerFrame = tk.Frame(bg="white")
         self.answerFrame.grid(row=0, column=0, sticky="nsew")
         # 画像の読み込み
         self.answerBackImage = ImageTk.PhotoImage(file="./img/answer.png")
-        ansResize = (390, 390)
-        self.answerChoices = [  # とりあえず全部ネコ
-            [ImageTk.PhotoImage(Image.open("./theme/neko.png").resize(ansResize)), (457, 858), "ネコ"],
-            [ImageTk.PhotoImage(Image.open("./theme/neko.png").resize(ansResize)), (990, 858), "ネコ"],
-            [ImageTk.PhotoImage(Image.open("./theme/neko.png").resize(ansResize)), (1500, 858), "ネコ"]
-        ]
         # キャンバスの設定
         self.answerCanvas = tk.Canvas(self.answerFrame, bg="white", width=iDrawingW, height=iDrawingH)
         self.answerCanvas.create_image(hW, hH, image=self.answerBackImage)
         #self.answerCanvas.create_text(hW, 80, text="回答選択", font=("helvetica", "48"))
         self.answerCanvas.place(x=0, y=0, width=fW, height=fH)
+        # リストに選択肢の情報をセット
+        ansResize = (356, 300)
+        ansLabelSize = (356, 91)
+        self.answerChoices = [  # とりあえず全部ネコ
+            [ImageTk.PhotoImage(Image.open("./theme/neko.png").resize(ansResize)), (278, 662), "イヌ"],
+            [ImageTk.PhotoImage(Image.open("./theme/neko.png").resize(ansResize)), (812, 662), "ネコ"],
+            [ImageTk.PhotoImage(Image.open("./theme/neko.png").resize(ansResize)), (1323, 662), "チューリップ"]
+        ]
+        correctIndex = 1
+        # ボタンの設定
+        def answerCallback(id):
+            def x():
+                if (id == correctIndex):
+                    self.changePage(self.correctFrame)
+                else:
+                    self.changePage(self.incorrectFrame)
+            return x
+        cntr = 0
+        self.answerChoiceBtn = list()
+        self.answerChoiceLabel = list()
+        for im, pos, name in self.answerChoices:
+            self.answerChoiceBtn.append(tk.Button(self.answerFrame, command=answerCallback(cntr), image=im))
+            self.answerChoiceLabel.append(tk.Label(self.answerFrame, text=name, font=("Helvetica", "36"), fg="black", bg="light gray"))
+            self.answerChoiceBtn[cntr].place(x=pos[0], y=pos[1], width=ansResize[0], height=ansResize[1])
+            self.answerChoiceLabel[cntr].place(x=pos[0], y=pos[1]+ansResize[1], width=ansLabelSize[0], height=ansLabelSize[1])
+            cntr += 1
         """
         # 使わなかったボタン
         self.toCheckBtn = tk.Button(self.answerFrame, text="正解へ", command=lambda: self.changePage(self.correctFrame))
@@ -230,21 +250,49 @@ class App(tk.Tk):
         """
 
 # correct --------------------------------------------------------------------------------------------------------------------------------
-        self.correctFrame = tk.Frame()
+        # フレームの設定
+        self.correctFrame = tk.Frame(bg="white")
         self.correctFrame.grid(row=0, column=0, sticky="nsew")
-        self.correctLabel = tk.Label(self.correctFrame, text="正解は〇〇！", font=("Helvetica", "35"))
+        # 画像の読み込み
+        self.correctBackImage = ImageTk.PhotoImage(file="./img/correct.png")
+        """
+        # ラベルの設定
+        self.correctLabel = tk.Label(self.correctFrame, text="正解！", font=("Helvetica", "35"), bg="gray")
         self.correctLabel.pack(anchor='center', expand=True)
+        """
+        # キャンバスの設定
+        self.correctCanvas = tk.Canvas(self.correctFrame, bg="white")
+        self.correctCanvas.create_image(hW, hH, image=self.correctBackImage)
+        self.tutorialCanvas.create_text(hW, 40, text="ネコ", font=("helvetica", "48"), fill="black")
+        self.answerCanvas.create_image(hW, hH, image=self.answerChoices[0][0])
+        self.correctCanvas.place(x=0, y=0, width=fW, height=fH)
+        """
+        # 使わなかったボタン
         self.toTitleCBtn = tk.Button(self.correctFrame, text="next", command=lambda: self.changePage(self.titleFrame))
         self.toTitleCBtn.pack()
+        """
 
 # incorrect --------------------------------------------------------------------------------------------------------------------------------
-        self.incorrectFrame = tk.Frame()
+        # フレームの設定
+        self.incorrectFrame = tk.Frame(bg="white")
         self.incorrectFrame.grid(row=0, column=0, sticky="nsew")
-        self.incorrectLabel = tk.Label(self.incorrectFrame, text="正解は〇〇！", font=("Helvetica", "35"))
+        # 画像の読み込み
+        self.incorrectBackImage = ImageTk.PhotoImage(file="./img/incorrect.png")
+        """
+        # ラベルの設定
+        self.incorrectLabel = tk.Label(self.incorrectFrame, text="不正解", font=("Helvetica", "35"), bg="white")
         self.incorrectLabel.pack(anchor='center', expand=True)
+        """
+        # キャンバスの設定
+        self.incorrectCanvas = tk.Canvas(self.incorrectFrame, bg="white")
+        self.incorrectCanvas.create_image(hW, hH, image=self.incorrectBackImage)
+        self.incorrectCanvas.place(x=0, y=0, width=fW, height=fH)
+        """
+        # 使わなかったボタン
         self.toTitleIBtn = tk.Button(self.incorrectFrame, text="next", command=lambda: self.changePage(self.titleFrame))
         self.toTitleIBtn.pack()
-
+        """
+        
         # タイトル画面を最前面にする
         self.drawingFrame.tkraise()
         
@@ -258,18 +306,18 @@ class App(tk.Tk):
     # キャンバス内をキャプチャする関数
     def canvasCapture(self, c):
         """
+        x= c.winfo_rootx() + c.winfo_x()
+        y= c.winfo_rooty() + c.winfo_y()
+        x1= x + c.winfo_width()
+        y1= y + c.winfo_height()
+        return ImageGrab.grab().crop((x, y, x1, y1))
+        """
         wx, wy = c.winfo_rootx(), c.winfo_rooty()
         inner_w, inner_h = int(c.cget("width")), int(c.cget("height"))
         outer_w, outer_h = c.winfo_width(), c.winfo_height()
         ox, oy = (outer_w-inner_w)//2, (outer_h-inner_h)//2
         x0, x1, y0, y1 = 0, inner_w, 0, inner_h
         return ImageGrab.grab((wx+x0+ox, wy+y0+oy, wx+x1+ox, wy+y1+oy))
-        """
-        x= c.winfo_rootx() + c.winfo_x()
-        y= c.winfo_rooty() + c.winfo_y()
-        x1= x + c.winfo_width()
-        y1= y + c.winfo_height()
-        return ImageGrab.grab().crop((x, y, x1, y1))
 
     # 終了時に呼び出される関数
     def exitProc(self):
