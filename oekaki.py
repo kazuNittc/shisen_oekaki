@@ -64,6 +64,8 @@ class App(tk.Tk):
         #   この処理をコメントアウトすると配置がずれる
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
+        
+        """
         # フルスクリーン表示
         self.attributes("-fullscreen", True)
         fW = self.winfo_screenwidth()
@@ -77,7 +79,7 @@ class App(tk.Tk):
         hW = fW / 2
         fH = 1080
         hH = fH / 2
-        """
+        
         # スペースキーでキャンバスを消去
         def clearAll(x):
             print("clear")
@@ -108,10 +110,11 @@ class App(tk.Tk):
 
 # tutorial --------------------------------------------------------------------------------------------------------------------------------
         # 遷移用関数の設定
-        self.answerChoices = list()
+        #self.answerChoices = list()
         def toThemeProc():
             self.changePage(self.themeFrame)
             # お題と選択肢を設定
+            self.themeImage = ImageTk.PhotoImage(file="./theme/neko.png")
             self.after(1500, announceTheme)
             #self.after(10, announceTheme)  # デバッグ用
         # フレームの設定
@@ -137,6 +140,7 @@ class App(tk.Tk):
             self.themeTitleLabel.config(text="ネコ")
             # 9 秒のカウントダウン
             self.after(1500, showThemeCountdown, 9)
+        
         def showThemeCountdown(time):
             if (time < 1):
                 # 60 秒のタイムリミット設定
@@ -145,13 +149,15 @@ class App(tk.Tk):
             else:
                 self.themeCountdownLabel.config(text="スタートまで...  {}".format(time))
                 self.after(1000, showThemeCountdown, time-1)
+        
         # フレームの設定
         self.themeFrame = tk.Frame(bg="white")
         self.themeFrame.grid(row=0, column=0, sticky="nsew")
         self.themeSubFrame = tk.Frame(master=self.themeFrame, bg="white")
         self.themeSubFrame.pack(anchor=tk.CENTER, pady=200)
         # 画像の読み込み
-        self.themeImage = ImageTk.PhotoImage(file="./theme/neko.png")
+        #self.themeImage = ImageTk.PhotoImage(file="./theme/neko.png")
+        self.themeImage = ImageTk.PhotoImage(Image.new("RGB", (1000, 1000), "white"))  # とりあえず空イメージを設定しておく
         iThemeW, iThemeH = self.themeImage.width(), self.themeImage.height()
         # ラベルの設定
         self.themeOdaihaLabel = tk.Label(self.themeSubFrame, text="お題は", font=("Helvetica", "48"), relief="ridge", borderwidth=0, bg="white")
@@ -185,6 +191,7 @@ class App(tk.Tk):
             else:
                 self.drawingTimerLabel.config(text="残り{}秒".format(time))
                 self.after(1000, drawingTimer, time-1)
+        
         # フレームの設定
         self.drawingFrame = tk.Frame(bg="white")
         self.drawingFrame.grid(row=0, column=0, sticky="nsew")
@@ -220,78 +227,55 @@ class App(tk.Tk):
         ansResize = (356, 300)
         ansLabelSize = (356, 91)
         self.answerChoices = [  # とりあえず全部ネコ
-            [ImageTk.PhotoImage(Image.open("./theme/neko.png").resize(ansResize)), (278, 662), "イヌ"],
-            [ImageTk.PhotoImage(Image.open("./theme/neko.png").resize(ansResize)), (812, 662), "ネコ"],
-            [ImageTk.PhotoImage(Image.open("./theme/neko.png").resize(ansResize)), (1323, 662), "チューリップ"]
+            [Image.open("./theme/neko.png"), (278, 662), "イヌ"],
+            [Image.open("./theme/neko.png"), (812, 662), "ネコ"],
+            [Image.open("./theme/neko.png"), (1323, 662), "チューリップ"]
         ]
         correctIndex = 1
         # ボタンの設定
         def answerCallback(id):
             def x():
-                if (id == correctIndex):
-                    self.changePage(self.correctFrame)
-                else:
-                    self.changePage(self.incorrectFrame)
+                # 選択によって背景画像を変える
+                if (id == correctIndex):    # 正解
+                    self.checkBackImage = ImageTk.PhotoImage(file="./img/correct.png")
+                else:                       # 不正解
+                    self.checkBackImage = ImageTk.PhotoImage(file="./img/incorrect.png")
+                # checkCanvas に画像や文字を配置
+                self.checkCanvas.create_image(hW, hH, image=self.checkBackImage)
+                self.checkCanvas.create_text(533, 810, text=self.answerChoices[correctIndex][2], font=("helvetica", "50"), fill="black")
+                self.checkCanvas.create_image(0, 0, image=ImageTk.PhotoImage(self.answerChoices[correctIndex][0]))
+                self.changePage(self.checkFrame)
             return x
+        
         cntr = 0
         self.answerChoiceBtn = list()
         self.answerChoiceLabel = list()
+        self.answerChoiceImage = list()
         for im, pos, name in self.answerChoices:
-            self.answerChoiceBtn.append(tk.Button(self.answerFrame, command=answerCallback(cntr), image=im))
+            self.answerChoiceImage.append(ImageTk.PhotoImage(im.resize(ansResize)))
+            self.answerChoiceBtn.append(tk.Button(self.answerFrame, command=answerCallback(cntr), image=self.answerChoiceImage[cntr]))
             self.answerChoiceLabel.append(tk.Label(self.answerFrame, text=name, font=("Helvetica", "36"), fg="black", bg="light gray"))
             self.answerChoiceBtn[cntr].place(x=pos[0], y=pos[1], width=ansResize[0], height=ansResize[1])
             self.answerChoiceLabel[cntr].place(x=pos[0], y=pos[1]+ansResize[1], width=ansLabelSize[0], height=ansLabelSize[1])
             cntr += 1
         """
         # 使わなかったボタン
-        self.toCheckBtn = tk.Button(self.answerFrame, text="正解へ", command=lambda: self.changePage(self.correctFrame))
+        self.toCheckBtn = tk.Button(self.answerFrame, text="正解へ", command=lambda: self.changePage(self.checkFrame))
         self.toCheckBtn.place(x=fW-200, y=fH-100, width=100, height=50)
         #self.toCheckBtn.pack(side=tk.BOTTOM, anchor=tk.E, ipadx=100, ipady=30, padx=20, pady=20)
         """
 
-# correct --------------------------------------------------------------------------------------------------------------------------------
+# check --------------------------------------------------------------------------------------------------------------------------------
         # フレームの設定
-        self.correctFrame = tk.Frame(bg="white")
-        self.correctFrame.grid(row=0, column=0, sticky="nsew")
-        # 画像の読み込み
-        self.correctBackImage = ImageTk.PhotoImage(file="./img/correct.png")
-        """
-        # ラベルの設定
-        self.correctLabel = tk.Label(self.correctFrame, text="正解！", font=("Helvetica", "35"), bg="gray")
-        self.correctLabel.pack(anchor='center', expand=True)
-        """
+        self.checkFrame = tk.Frame(bg="white")
+        self.checkFrame.grid(row=0, column=0, sticky="nsew")
         # キャンバスの設定
-        self.correctCanvas = tk.Canvas(self.correctFrame, bg="white")
-        self.correctCanvas.create_image(hW, hH, image=self.correctBackImage)
-        self.tutorialCanvas.create_text(hW, 40, text="ネコ", font=("helvetica", "48"), fill="black")
-        self.answerCanvas.create_image(hW, hH, image=self.answerChoices[0][0])
-        self.correctCanvas.place(x=0, y=0, width=fW, height=fH)
-        """
-        # 使わなかったボタン
-        self.toTitleCBtn = tk.Button(self.correctFrame, text="next", command=lambda: self.changePage(self.titleFrame))
-        self.toTitleCBtn.pack()
-        """
-
-# incorrect --------------------------------------------------------------------------------------------------------------------------------
-        # フレームの設定
-        self.incorrectFrame = tk.Frame(bg="white")
-        self.incorrectFrame.grid(row=0, column=0, sticky="nsew")
-        # 画像の読み込み
-        self.incorrectBackImage = ImageTk.PhotoImage(file="./img/incorrect.png")
-        """
-        # ラベルの設定
-        self.incorrectLabel = tk.Label(self.incorrectFrame, text="不正解", font=("Helvetica", "35"), bg="white")
-        self.incorrectLabel.pack(anchor='center', expand=True)
-        """
-        # キャンバスの設定
-        self.incorrectCanvas = tk.Canvas(self.incorrectFrame, bg="white")
-        self.incorrectCanvas.create_image(hW, hH, image=self.incorrectBackImage)
-        self.incorrectCanvas.place(x=0, y=0, width=fW, height=fH)
-        """
-        # 使わなかったボタン
-        self.toTitleIBtn = tk.Button(self.incorrectFrame, text="next", command=lambda: self.changePage(self.titleFrame))
-        self.toTitleIBtn.pack()
-        """
+        self.checkCanvas = tk.Canvas(self.checkFrame, bg="white")
+        self.checkCanvas.place(x=0, y=0, width=fW, height=fH)
+        self.checkBackImage = ImageTk.PhotoImage(Image.new("RGB", ansResize, "white"))  # とりあえず空イメージを設定しておく
+        # ボタンの設定
+        self.toTitleBtn = tk.Button(self.checkFrame, text="終わる", command=lambda: self.changePage(self.titleFrame))
+        self.toTitleBtn.place(x=fW-220, y=fH-70, width=200, height=50)
         
         # タイトル画面を最前面にする
         self.drawingFrame.tkraise()
