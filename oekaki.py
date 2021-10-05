@@ -1,6 +1,8 @@
+import json
 import tkinter as tk
 from tkinter import messagebox
 from PIL import Image, ImageGrab, ImageDraw, ImageTk
+import random
 
 
 
@@ -45,7 +47,7 @@ class PaintMng():
             # 消した直後から線が描かれないよう，強制的に描かない設定にする
             self.clickToggle = False
             self.oldX, self.oldY = None, None
-            #　タグ指定で線のみを消去
+            # タグ指定で線のみを消去
             self.canv.delete("paint")
     
     def setPaintEnable(self, bool):
@@ -58,12 +60,25 @@ class App(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
 
+        # 定数を宣言
+        themeResize = (524, 450)
+        ansResize = (356, 300)
+        ansLabelSize = (356, 91)
+        # 変数を初期化
+        self.answerChoices = list()
+        self.answerChoiceBtn = list()
+        self.answerChoiceLabel = list()
+        self.answerChoiceImage = list()
+        # theme.json からお題データを読み込む
+        with open("./theme.json", mode="r", encoding="utf-8") as f:
+            themeData = json.load(f)
         # ウィンドウに関する設定
         self.title("oekaki")
         # ウィンドウのグリッドを 1 x 1 にする
         #   この処理をコメントアウトすると配置がずれる
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
+        """
         # フルスクリーン表示
         self.attributes("-fullscreen", True)
         fW = self.winfo_screenwidth()
@@ -77,18 +92,28 @@ class App(tk.Tk):
         hW = fW / 2
         fH = 1080
         hH = fH / 2
-        """
         
-        # スペースキーでキャンバスを消去
-        def clearAll(reset=False):
+        # 画面の消去を行う関数
+        # reset: True を渡せば強制リセット
+        #        キャンバスに書き込み不可状態でも消去したい時用
+        def clearPaint(reset=False):
+            # キャンバスを消去
             tutorialPaintMng.clearCanvas(reset)
             drawingPaintMng.clearCanvas(reset)
-        self.bind("<KeyPress-space>", clearAll)
+
+        # 2 回目以降のために前回の演出や表示を消去する関数
+        def resetCanvas():
+            self.themeCanvas.delete("loop")
+            self.answerCanvas.delete("loop")
+            self.checkCanvas.delete("loop")
+
+        self.bind("<KeyPress-space>", clearPaint)
 
 # title --------------------------------------------------------------------------------------------------------------------------------
         # 遷移用関数の設定
         def toTutorialProc(dummy):
-            clearAll(reset=True)
+            clearPaint(reset=True)
+            resetCanvas()
             self.changePage(self.tutorialFrame)
         # フレームの設定
         self.titleFrame = tk.Frame(bg="white")
@@ -114,12 +139,40 @@ class App(tk.Tk):
 # tutorial --------------------------------------------------------------------------------------------------------------------------------
         # 遷移用関数の設定
         def toThemeProc():
-            self.changePage(self.themeFrame)
-            # お題と選択肢を設定
+            # 選択肢を設定
+            self.answerChoices = list()
+            for tJson, posData in zip(random.sample(themeData, 3), [(278, 662), (812, 662), (1323, 662)]):
+                self.answerChoices.append([Image.open(tJson["image"]), posData, tJson["name"]])
+            """
+            self.answerChoices = [  # とりあえず全部ネコ
+                [Image.open("./theme/neko.png"), (278, 662), "イヌ"],
+                [Image.open("./theme/neko.png"), (812, 662), "ネコ"],
+                [Image.open("./theme/neko.png"), (1323, 662), "チューリップ"]
+            ]
+            """
+            # 正解を answerChoices のインデックスで設定
+            global correctIndex
+            correctIndex = random.randint(0, 2)
+            # answerFrame のボタンの設定
+            cntr = 0
+            self.answerChoiceBtn = list()
+            self.answerChoiceLabel = list()
+            self.answerChoiceImage = list()
+            for im, pos, name in self.answerChoices:
+                self.answerChoiceImage.append(ImageTk.PhotoImage(im.resize(ansResize)))
+                self.answerChoiceBtn.append(tk.Button(self.answerFrame, command=answerCallback(cntr), image=self.answerChoiceImage[cntr]))
+                self.answerChoiceLabel.append(tk.Label(self.answerFrame, text=name, font=("Helvetica", "36"), fg="black", bg="light gray"))
+                self.answerChoiceBtn[cntr].place(x=pos[0], y=pos[1], width=ansResize[0], height=ansResize[1])
+                self.answerChoiceLabel[cntr].place(x=pos[0], y=pos[1]+ansResize[1], width=ansLabelSize[0], height=ansLabelSize[1])
+                cntr += 1
+            # カウントダウン用ラベルの表示を消去
             self.themeCountdownLabel.config(text="")
-            self.themeImage = ImageTk.PhotoImage(file="./theme/neko.png")
-            #self.after(1500, announceTheme)
-            self.after(1, announceTheme)  # デバッグ用
+            # お題提示画面に遷移
+            self.changePage(self.themeFrame)
+            # 1.5 秒後にお題名と画像を表示
+            self.after(1500, announceTheme)
+            #self.after(10, announceTheme)  # デバッグ用
+        
         # フレームの設定
         self.tutorialFrame = tk.Frame(bg="light gray")
         self.tutorialFrame.grid(row=0, column=0, sticky="nsew")
@@ -138,22 +191,22 @@ class App(tk.Tk):
 
 # theme --------------------------------------------------------------------------------------------------------------------------------
         # 遷移・表示用関数の設定
-        themeResize = (524, 450)
         def announceTheme():
-            self.themeImage = ImageTk.PhotoImage(Image.open("./theme/neko.png").resize(themeResize))
-            self.themeCanvas.create_image(1150, 580, image=self.themeImage)
-            self.themeCanvas.create_text(640, 530, text="チューリップ", font=("Helvetica", "50"))
+            # お題名・画像を表示
+            self.themeImage = ImageTk.PhotoImage(self.answerChoices[correctIndex][0].resize(themeResize))
+            self.themeCanvas.create_image(1150, 580, image=self.themeImage, tag="loop")
+            self.themeCanvas.create_text(640, 530, text=self.answerChoices[correctIndex][2], font=("Helvetica", "50"), tag="loop")
             # 9 秒のカウントダウン
-            #self.after(1500, showThemeCountdown, 9)
-            self.after(1500, showThemeCountdown, 2)  # デバッグ用
+            self.after(1500, showThemeCountdown, 9)
+            #self.after(1500, showThemeCountdown, 2)  # デバッグ用
         
         def showThemeCountdown(time):
             if (time < 1):
                 # キャンバスに絵を描けるようにする
                 drawingPaintMng.setPaintEnable(True)
                 # 60 秒のタイムリミット設定
-                #drawingTimer(60)
-                drawingTimer(3)  # デバッグ用
+                drawingTimer(60)
+                #drawingTimer(5)  # デバッグ用
                 self.changePage(self.drawingFrame)
             else:
                 self.themeCountdownLabel.config(text="スタートまで...  {}".format(time))
@@ -189,10 +242,10 @@ class App(tk.Tk):
                 self.drawingTimerLabel.config(text="終了！")
                 # 描いた絵をキャプチャして貼り付け
                 self.drawingCapture = ImageTk.PhotoImage(self.canvasCapture(self.drawingCanvas).resize((945, 528)))
-                self.answerCanvas.create_image(991, 329, image=self.drawingCapture)
+                self.answerCanvas.create_image(991, 329, image=self.drawingCapture, tag="loop")
                 # 3 秒後にページ遷移
-                #self.after(3000, self.changePage, self.answerFrame)
-                self.after(1, self.changePage, self.answerFrame)  # デバッグ用
+                self.after(3000, self.changePage, self.answerFrame)
+                #self.after(1, self.changePage, self.answerFrame)  # デバッグ用
             else:
                 self.drawingTimerLabel.config(text="残り{}秒".format(time))
                 self.after(1000, drawingTimer, time-1)
@@ -226,18 +279,7 @@ class App(tk.Tk):
         # キャンバスの設定
         self.answerCanvas = tk.Canvas(self.answerFrame, bg="white")
         self.answerCanvas.create_image(hW, hH, image=self.answerBackImage)
-        #self.answerCanvas.create_text(hW, 80, text="回答選択", font=("helvetica", "48"))
         self.answerCanvas.place(x=0, y=0, width=fW, height=fH)
-        # リストに選択肢の情報をセット
-        ansResize = (356, 300)
-        ansLabelSize = (356, 91)
-        self.answerChoices = [  # とりあえず全部ネコ
-            [Image.open("./theme/neko.png"), (278, 662), "イヌ"],
-            [Image.open("./theme/neko.png"), (812, 662), "ネコ"],
-            [Image.open("./theme/neko.png"), (1323, 662), "チューリップ"]
-        ]
-        correctIndex = 1
-        self.checkThemeImage = ImageTk.PhotoImage(self.answerChoices[correctIndex][0].resize(themeResize))
         # ボタンが押された時の動作を定義する
         def answerCallback(id):
             def x():
@@ -247,23 +289,11 @@ class App(tk.Tk):
                 else:                       # 不正解
                     self.checkBackImage = ImageTk.PhotoImage(file="./img/incorrect.png")
                 # checkCanvas に画像や文字を配置
-                self.checkCanvas.create_image(hW, hH, image=self.checkBackImage)
-                self.checkCanvas.create_text(533, 810, text=self.answerChoices[correctIndex][2], font=("helvetica", "50"), fill="black")
-                self.checkCanvas.create_image(1200, 770, image=self.checkThemeImage)
+                self.checkCanvas.create_image(hW, hH, image=self.checkBackImage, tag="loop")
+                self.checkCanvas.create_text(533, 810, text=self.answerChoices[correctIndex][2], font=("helvetica", "50"), fill="black", tag="loop")
+                self.checkCanvas.create_image(1200, 770, image=self.themeImage, tag="loop")
                 self.changePage(self.checkFrame)
             return x
-        # ボタンの設定
-        cntr = 0
-        self.answerChoiceBtn = list()
-        self.answerChoiceLabel = list()
-        self.answerChoiceImage = list()
-        for im, pos, name in self.answerChoices:
-            self.answerChoiceImage.append(ImageTk.PhotoImage(im.resize(ansResize)))
-            self.answerChoiceBtn.append(tk.Button(self.answerFrame, command=answerCallback(cntr), image=self.answerChoiceImage[cntr]))
-            self.answerChoiceLabel.append(tk.Label(self.answerFrame, text=name, font=("Helvetica", "36"), fg="black", bg="light gray"))
-            self.answerChoiceBtn[cntr].place(x=pos[0], y=pos[1], width=ansResize[0], height=ansResize[1])
-            self.answerChoiceLabel[cntr].place(x=pos[0], y=pos[1]+ansResize[1], width=ansLabelSize[0], height=ansLabelSize[1])
-            cntr += 1
         """
         # 使わなかったボタン
         self.toCheckBtn = tk.Button(self.answerFrame, text="正解へ", command=lambda: self.changePage(self.checkFrame))
@@ -279,6 +309,7 @@ class App(tk.Tk):
         self.checkCanvas = tk.Canvas(self.checkFrame, bg="white")
         self.checkCanvas.place(x=0, y=0, width=fW, height=fH)
         self.checkBackImage = ImageTk.PhotoImage(Image.new("RGB", ansResize, "white"))  # とりあえず空イメージを設定しておく
+        self.checkThemeImage = ImageTk.PhotoImage(Image.new("RGB", themeResize, "white"))  # とりあえず空イメージを設定しておく
         # ボタンの設定
         self.toTitleBtn = tk.Button(self.checkFrame, text="終わる", command=lambda: self.changePage(self.titleFrame))
         self.toTitleBtn.place(x=fW-220, y=fH-70, width=200, height=50)
