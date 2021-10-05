@@ -40,8 +40,8 @@ class PaintMng():
                 self.oldX, self.oldY = None, None
     
     # キャンバス内の線を消去する関数
-    def clearCanvas(self):
-        if (self.paintEnable):
+    def clearCanvas(self, reset=False):
+        if (self.paintEnable or reset):
             # 消した直後から線が描かれないよう，強制的に描かない設定にする
             self.clickToggle = False
             self.oldX, self.oldY = None, None
@@ -64,8 +64,6 @@ class App(tk.Tk):
         #   この処理をコメントアウトすると配置がずれる
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
-        
-        """
         # フルスクリーン表示
         self.attributes("-fullscreen", True)
         fW = self.winfo_screenwidth()
@@ -79,15 +77,19 @@ class App(tk.Tk):
         hW = fW / 2
         fH = 1080
         hH = fH / 2
+        """
         
         # スペースキーでキャンバスを消去
-        def clearAll(x):
-            print("clear")
-            tutorialPaintMng.clearCanvas()
-            drawingPaintMng.clearCanvas()
+        def clearAll(reset=False):
+            tutorialPaintMng.clearCanvas(reset)
+            drawingPaintMng.clearCanvas(reset)
         self.bind("<KeyPress-space>", clearAll)
 
 # title --------------------------------------------------------------------------------------------------------------------------------
+        # 遷移用関数の設定
+        def toTutorialProc(dummy):
+            clearAll(reset=True)
+            self.changePage(self.tutorialFrame)
         # フレームの設定
         self.titleFrame = tk.Frame(bg="white")
         self.titleFrame.grid(row=0, column=0, sticky="nsew")
@@ -99,24 +101,25 @@ class App(tk.Tk):
         self.titleCanvas.create_text(hW, hH + 400, text="まばたきで開始", font=("helvetica", "36"))
         self.titleCanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         # キャンバス( 画面のどこか )をクリックしたらチュートリアルに遷移
-        self.titleCanvas.bind("<1>", lambda x: self.changePage(self.tutorialFrame))
+        self.titleCanvas.bind("<1>", toTutorialProc)
+        # ボタンの設定
+        self.exitBtn = tk.Button(self.titleFrame, text="終了", command=self.exitProc)
+        self.exitBtn.place(x=fW-60, y=fH-35, width=50, height=25)
         """
         # 使わなかったボタン
         self.toTutorialBtn = tk.Button(self.titleFrame, text="スタート", command=lambda: self.changePage(self.tutorialFrame))
         self.toTutorialBtn.pack(anchor=tk.N, ipadx=150, ipady=100, pady=100)
-        self.exitBtn = tk.Button(self.titleFrame, text="終了", command=self.exitProc)
-        self.exitBtn.pack(anchor=tk.E, padx=10, pady=10)
         """
 
 # tutorial --------------------------------------------------------------------------------------------------------------------------------
         # 遷移用関数の設定
-        #self.answerChoices = list()
         def toThemeProc():
             self.changePage(self.themeFrame)
             # お題と選択肢を設定
+            self.themeCountdownLabel.config(text="")
             self.themeImage = ImageTk.PhotoImage(file="./theme/neko.png")
-            self.after(1500, announceTheme)
-            #self.after(10, announceTheme)  # デバッグ用
+            #self.after(1500, announceTheme)
+            self.after(1, announceTheme)  # デバッグ用
         # フレームの設定
         self.tutorialFrame = tk.Frame(bg="light gray")
         self.tutorialFrame.grid(row=0, column=0, sticky="nsew")
@@ -134,17 +137,23 @@ class App(tk.Tk):
         self.toThemeBtn.pack(side=tk.BOTTOM, ipadx=300, ipady=40)
 
 # theme --------------------------------------------------------------------------------------------------------------------------------
-        # 表示用関数の設定
+        # 遷移・表示用関数の設定
+        themeResize = (524, 450)
         def announceTheme():
-            self.themeCanvas.create_image(iThemeW/2, iThemeH/2, image=self.themeImage)
-            self.themeTitleLabel.config(text="ネコ")
+            self.themeImage = ImageTk.PhotoImage(Image.open("./theme/neko.png").resize(themeResize))
+            self.themeCanvas.create_image(1150, 580, image=self.themeImage)
+            self.themeCanvas.create_text(640, 530, text="チューリップ", font=("Helvetica", "50"))
             # 9 秒のカウントダウン
-            self.after(1500, showThemeCountdown, 9)
+            #self.after(1500, showThemeCountdown, 9)
+            self.after(1500, showThemeCountdown, 2)  # デバッグ用
         
         def showThemeCountdown(time):
             if (time < 1):
+                # キャンバスに絵を描けるようにする
+                drawingPaintMng.setPaintEnable(True)
                 # 60 秒のタイムリミット設定
-                drawingTimer(60)
+                #drawingTimer(60)
+                drawingTimer(3)  # デバッグ用
                 self.changePage(self.drawingFrame)
             else:
                 self.themeCountdownLabel.config(text="スタートまで...  {}".format(time))
@@ -153,22 +162,17 @@ class App(tk.Tk):
         # フレームの設定
         self.themeFrame = tk.Frame(bg="white")
         self.themeFrame.grid(row=0, column=0, sticky="nsew")
-        self.themeSubFrame = tk.Frame(master=self.themeFrame, bg="white")
-        self.themeSubFrame.pack(anchor=tk.CENTER, pady=200)
         # 画像の読み込み
-        #self.themeImage = ImageTk.PhotoImage(file="./theme/neko.png")
-        self.themeImage = ImageTk.PhotoImage(Image.new("RGB", (1000, 1000), "white"))  # とりあえず空イメージを設定しておく
+        self.themeBackImage = ImageTk.PhotoImage(file="./img/theme.png")
+        self.themeImage = ImageTk.PhotoImage(Image.new("RGB", themeResize, "#D6D0CE"))  # とりあえず空イメージを設定しておく
         iThemeW, iThemeH = self.themeImage.width(), self.themeImage.height()
-        # ラベルの設定
-        self.themeOdaihaLabel = tk.Label(self.themeSubFrame, text="お題は", font=("Helvetica", "48"), relief="ridge", borderwidth=0, bg="white")
-        self.themeOdaihaLabel.grid(row=0, column=0, pady=20, sticky=tk.W+tk.E)
-        self.themeTitleLabel = tk.Label(self.themeSubFrame, width=10, font=("Helvetica", "72"), relief="ridge", borderwidth=0, bg="white")
-        self.themeTitleLabel.grid(row=1, column=1, padx=100, sticky=tk.N+tk.S)
-        self.themeCountdownLabel = tk.Label(self.themeSubFrame, width=10, font=("Helvetica", "48"), relief="ridge", borderwidth=0, fg="gray", bg="white")
-        self.themeCountdownLabel.grid(row=0, column=1, sticky=tk.W+tk.E)
         # キャンバスの設定
-        self.themeCanvas = tk.Canvas(self.themeSubFrame, bg="light gray", width=iThemeW, height=iThemeH)
-        self.themeCanvas.grid(row=1, column=0)
+        self.themeCanvas = tk.Canvas(self.themeFrame, bg="light gray")
+        self.themeCanvas.create_image(hW, hH, image=self.themeBackImage)
+        self.themeCanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        # ラベルの設定
+        self.themeCountdownLabel = tk.Label(self.themeFrame, font=("Helvetica", "36"), bg="#D6D0CE")
+        self.themeCountdownLabel.place(x=965, y=220, width=420, height=65)
         """
         # 使わなかったボタン
         self.toDrawingBtn = tk.Button(self.themeSubFrame, text="next", command=lambda: self.changePage(self.drawingFrame))
@@ -176,18 +180,19 @@ class App(tk.Tk):
         """
 
 # drawing --------------------------------------------------------------------------------------------------------------------------------
-        # 表示用関数の設定
+        # 遷移・表示用関数の設定
         def drawingTimer(time):
             if (time < 1):
-                # 終了～！みたいな演出
+                # キャンバスに絵を描けなくする
                 drawingPaintMng.setPaintEnable(False)
+                # 終了～！みたいな演出
                 self.drawingTimerLabel.config(text="終了！")
                 # 描いた絵をキャプチャして貼り付け
                 self.drawingCapture = ImageTk.PhotoImage(self.canvasCapture(self.drawingCanvas).resize((945, 528)))
                 self.answerCanvas.create_image(991, 329, image=self.drawingCapture)
                 # 3 秒後にページ遷移
                 #self.after(3000, self.changePage, self.answerFrame)
-                self.after(10, self.changePage, self.answerFrame)  # デバッグ用
+                self.after(1, self.changePage, self.answerFrame)  # デバッグ用
             else:
                 self.drawingTimerLabel.config(text="残り{}秒".format(time))
                 self.after(1000, drawingTimer, time-1)
@@ -219,7 +224,7 @@ class App(tk.Tk):
         # 画像の読み込み
         self.answerBackImage = ImageTk.PhotoImage(file="./img/answer.png")
         # キャンバスの設定
-        self.answerCanvas = tk.Canvas(self.answerFrame, bg="white", width=iDrawingW, height=iDrawingH)
+        self.answerCanvas = tk.Canvas(self.answerFrame, bg="white")
         self.answerCanvas.create_image(hW, hH, image=self.answerBackImage)
         #self.answerCanvas.create_text(hW, 80, text="回答選択", font=("helvetica", "48"))
         self.answerCanvas.place(x=0, y=0, width=fW, height=fH)
@@ -232,7 +237,8 @@ class App(tk.Tk):
             [Image.open("./theme/neko.png"), (1323, 662), "チューリップ"]
         ]
         correctIndex = 1
-        # ボタンの設定
+        self.checkThemeImage = ImageTk.PhotoImage(self.answerChoices[correctIndex][0].resize(themeResize))
+        # ボタンが押された時の動作を定義する
         def answerCallback(id):
             def x():
                 # 選択によって背景画像を変える
@@ -243,10 +249,10 @@ class App(tk.Tk):
                 # checkCanvas に画像や文字を配置
                 self.checkCanvas.create_image(hW, hH, image=self.checkBackImage)
                 self.checkCanvas.create_text(533, 810, text=self.answerChoices[correctIndex][2], font=("helvetica", "50"), fill="black")
-                self.checkCanvas.create_image(0, 0, image=ImageTk.PhotoImage(self.answerChoices[correctIndex][0]))
+                self.checkCanvas.create_image(1200, 770, image=self.checkThemeImage)
                 self.changePage(self.checkFrame)
             return x
-        
+        # ボタンの設定
         cntr = 0
         self.answerChoiceBtn = list()
         self.answerChoiceLabel = list()
@@ -278,9 +284,7 @@ class App(tk.Tk):
         self.toTitleBtn.place(x=fW-220, y=fH-70, width=200, height=50)
         
         # タイトル画面を最前面にする
-        self.drawingFrame.tkraise()
-        
-        drawingTimer(1)  # デバッグ用
+        self.titleFrame.tkraise()
 
     # 画面遷移する関数
     # page: 遷移先のフレーム
@@ -288,8 +292,10 @@ class App(tk.Tk):
         page.tkraise()
 
     # キャンバス内をキャプチャする関数
+    # c: キャプチャするキャンバスオブジェクト
     def canvasCapture(self, c):
         """
+        # 一応 2 種類のやり方を用意してある
         x= c.winfo_rootx() + c.winfo_x()
         y= c.winfo_rooty() + c.winfo_y()
         x1= x + c.winfo_width()
