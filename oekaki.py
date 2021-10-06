@@ -78,7 +78,6 @@ class App(tk.Tk):
         #   この処理をコメントアウトすると配置がずれる
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
-        """
         # フルスクリーン表示
         self.attributes("-fullscreen", True)
         fW = self.winfo_screenwidth()
@@ -92,6 +91,7 @@ class App(tk.Tk):
         hW = fW / 2
         fH = 1080
         hH = fH / 2
+        """
         
 # 関数内関数 --------------------------------------------------------------------------------------------------------------------------------
         # 画面の消去を行う関数
@@ -253,7 +253,6 @@ class App(tk.Tk):
         # お絵描きキャンバスとして管理
         tutorialPaintMng = PaintMng(canv=self.tutorialCanvas)
         # ボタンの設定
-        #self.toThemeBtn = tk.Button(self.tutorialFrame, text="練習を終わる", command=lambda: self.changePage(self.themeFrame))
         self.toThemeBtn = tk.Button(self.tutorialFrame, text="練習を終わる", command=toThemeProc)
         self.toThemeBtn.pack(side=tk.BOTTOM, ipadx=300, ipady=40)
 
@@ -265,7 +264,6 @@ class App(tk.Tk):
         # 画像の読み込み
         self.themeBackImage = ImageTk.PhotoImage(file="./img/theme.png")
         self.themeImage = ImageTk.PhotoImage(Image.new("RGB", themeResize, "#D6D0CE"))  # とりあえず空イメージを設定しておく
-        #iThemeW, iThemeH = self.themeImage.width(), self.themeImage.height()
         # キャンバスの設定
         self.themeCanvas = tk.Canvas(self.themeFrame, bg="light gray")
         self.themeCanvas.create_image(hW, hH, image=self.themeBackImage)
